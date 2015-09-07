@@ -20,20 +20,6 @@
                ReferencedContainer = "container:ConstantsSwitchingExample.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "NO"
-            buildForArchiving = "NO"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CD887BAE1B8A242000A7DF25"
-               BuildableName = "ConstantsSwitchingExampleTests.xctest"
-               BlueprintName = "ConstantsSwitchingExampleTests"
-               ReferencedContainer = "container:ConstantsSwitchingExample.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -42,16 +28,6 @@
       shouldUseLaunchSchemeArgsEnv = "YES"
       buildConfiguration = "Debug">
       <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CD887BAE1B8A242000A7DF25"
-               BuildableName = "ConstantsSwitchingExampleTests.xctest"
-               BlueprintName = "ConstantsSwitchingExampleTests"
-               ReferencedContainer = "container:ConstantsSwitchingExample.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
       <MacroExpansion>
          <BuildableReference
