@@ -1,0 +1,176 @@
+<link href="http://alexgorbatchev.com/pub/sh/current/styles/shCore.css" rel="stylesheet" type="text/css" />
+<link href="http://alexgorbatchev.com/pub/sh/current/styles/shThemeDefault.css" rel="stylesheet" type="text/css" />
+<style type="text/css">
+.syntaxhighlighter .gutter .line {
+  border-right: 3px solid #a3232a !important;
+}
+
+img {
+  width: 90%;
+}
+
+figcaption {
+  padding-top: 10px;
+  padding-bottom: 5px;
+  font-weight: bold;
+}
+</style>
+
+<h2>Using compiler flags to switch between QA and production servers in iOS Applications</h2>
+
+<h3><b>Introduction</b></h3>
+
+<p>Many iOS applications we develop are tested against a QA server before we submit to the Apple store. These servers have different URLs than their production-ready counterparts, and we do not want to accidentally submit a build to Apple that uses a QA server URL.</p>
+
+<p>This article explains how we implemented a reliable URL-switching mechanism for our QA and Production apps builds to prevent human error in app submissions. It assumes you have familiarity with XCode 6, Swift, and the general iOS build and submission process.</p>
+
+<p>Source code from this example can be found on <a href="https://github.com/awolin/credera-constantsswitchingexample">GitHub</a></p>
+
+
+<h3><b>1 - Setup Your Target Parameters</b></h3>
+ 
+<p>Much of the work to have a reliable QA and Production app is in setting up your project to have different settings for Debug and Release builds.</p>
+
+<p>Go to your project file Targets > Build Settings and search for "code signing". Set the Debug Provisioning Profile to your Development or QA provisioning profile, and your Release profile to your Distribution. Then change your Code Signing Identity for Debug to use your Developer or Ad Hoc Distribution identitiy. The Release identitiy should use the iTunes Store iOS Distribution identity. These changes will force all of your Release builds to use your Production standards.</p>
+
+<p>Still in Targets > Build Settings, search for "swift compiler - custom flags". Add a Release flag with the value <code>-DPROD</code>. This setting allows us to conditionally compile code using an <code>#if PROD &lt;code&gt; #endif</code> pattern. More on this in Step 2.</p>
+
+<p>Optionally, we can also change the package name to reflect our current build. Search for "product name" in the Build Settings and set a different package name for Debug and Release. In our case, we use "Example QA" and "Example".</p>
+
+
+<h3><b>2 - Use the compiler constant to change servers</b></h3>
+
+<p>In our example app, we created a Constants.swift file to hold our QA and Production server URLs. Using a single file for our production/QA constants will allow us to easily switch between them in one location during development.</p>
+
+<p>Setup the file to contain structs with static variables. Switch between the variables using an <code>#if PROD &lt;code&gt; #endif</code>, which uses the <code>-DPROD</code> compiler setting from our Build Settings to change what portions of code are in our final target. For us, this will create a <code>Server.URL</code> variable that switches between the <code>Server.QA</code> and <code>Server.PROD</code> variables available.</p>
+
+<h4>Constants.swift</h4>
+
+<script type="syntaxhighlighter" class="brush: cpp"><![CDATA[
+import Foundation
+
+public struct Constants {
+    
+    struct Server {
+        static let QA = "https://qaserver.example.com"
+        static let PROD = "https://productionserver.example.com"
+        
+        #if PROD
+        static let URL = PROD
+        #else
+        static let URL = QA
+        #endif
+    }
+}
+]]></script>
+
+
+<h3><b>3 - Manage your Product Schemes</b></h3>
+
+<p>Now that we have our Build Settings and Constants file in place, let's create some Product Schemes for utilizing our QA/Production switching code.</p>
+
+<p>On the application toolbar, go to Product > Scheme > Manage Schemes. Delete the current schemes and create two new ones; in our example, we've used Example QA and Example PROD (Fig. 1).</p>
+
+<center>
+    <figure>
+    <img src="https://raw.githubusercontent.com/awolin/credera-constantsswitchingexample/master/Screenshots/1%20-%20Scheme%20Setup.png">
+        <figcaption>Fig. 1 - Product schemes setup for QA and Prod</figcaption>
+    </figure>
+</center>
+
+<p>Edit "Example QA" and set both the "Run" and "Archive" builds to use the a "Debug" build configuration (Fig. 2). For Example PROD, set both the "Run" and "Archive" settings to use a "Release" build configuration (Fig. 3).</p>
+
+<center>
+    <figure>
+        <img src="https://raw.githubusercontent.com/awolin/credera-constantsswitchingexample/master/Screenshots/2%20-%20QA%20Scheme.png">
+        <figcaption>Fig. 2 - Example QA scheme using debug build configurations</figcaption>
+    </figure>
+</center>
+
+<center>
+    <figure>
+        <img src="https://raw.githubusercontent.com/awolin/credera-constantsswitchingexample/master/Screenshots/3%20-%20Prod%20Scheme.png">
+        <figcaption>Fig. 3 - Example PROD scheme using release build configurations</figcaption>
+    </figure>
+</center>
+
+<h3><b>4 - Build!</b></h3>
+
+<p>You can now test and archive your QA app for development and Ad Hoc testing purposes, and iTunes Connect submissions should use the Example PROD Archive. The build configuration "Release" will compile with the <code>-DPROD</code> flag and force the app to use your production URL configured in your Constants.swift file (Fig. 4).</p>
+
+<center>
+    <figure>
+        <img src="https://raw.githubusercontent.com/awolin/credera-constantsswitchingexample/master/Screenshots/4%20-%20Prod%20Building.png">
+        <figcaption>Fig. 4 - Building a release configuration</figcaption>
+    </figure>
+</center>
+
+<h3><b>5 - Additional safeguards (Optional)</b></h3>
+
+<p>Although setting up the compiler branching in the Constants.swift file should be enough to prevent human error when compiling builds, it never hurts to have more safeguards. We've also added some functionality to our AppDelegate file to check that a production build is using production constants. We can alert the user that the wrong constants are used, or abort the app completely which will prevent any Apple submission review from being accepted.</p>
+
+<h4>AppDelegate.swift</h4>
+<script type="syntaxhighlighter" class="brush: cpp"><![CDATA[
+func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: [NSObject: AnyObject]?) -> Bool {
+
+    // Double-check the servers are pointing to the correct URLs on production builds
+    #if PROD
+    self.assertThatBuildsAreUsingProdConstants()
+    #endif
+    
+    return true
+}
+
+...
+
+// MARK: - Bad Prod Build Check
+
+// Checks the set constants against production and alerts the user if they are set to anything different.
+// This class must be updated for each constant you'd like to check.
+private func assertThatBuildsAreUsingProdConstants() {
+    if Constants.Server.URL != Constants.Server.PROD {
+        let message = String(format: "INCORRECT CONSTANTS\nServe URL: %@\n", Constants.Server.URL)
+        
+        // Soft fail
+        self.showAlert("Check Constants File", message: message, forViewController: self.window?.rootViewController)
+        
+        // Hard fail
+        //abort()
+    }
+    else {
+        println("************************************")
+        println("App is Production Ready")
+        println("************************************")
+        println("")
+    }
+}
+
+// Helper function that handles alert displaying on iOS 7 and 8
+private func showAlert(title: String?, message: String?, forViewController viewController: UIViewController?) {
+    NSOperationQueue.mainQueue().addOperationWithBlock({
+        // Handles iOS 8 alerts
+        if NSClassFromString("UIAlertController") != nil {
+            var alert = UIAlertController(title: title, message: message, preferredStyle: UIAlertControllerStyle.Alert)
+            alert.addAction(UIAlertAction(title: "OK", style: UIAlertActionStyle.Default, handler: nil))
+            viewController?.presentViewController(alert, animated: true, completion: nil)
+        }
+        // Handles iOS 7 alerts
+        else {
+            let alert = UIAlertView(title: title, message: message, delegate: nil, cancelButtonTitle: "OK")
+            alert.show()
+        }
+    })
+}
+]]></script>
+
+<h3><b>Conclusion</b></h3>
+
+<p>Using Swift compiler constants with Build Targets and Production Schemes can reduce human error in compiling iOS builds for QA and production. We've used the presented patterns with great effect for our clients, and we hope you can utilize them as well.</p>
+
+<script src="http://alexgorbatchev.com/pub/sh/current/scripts/shCore.js" type="text/javascript"></script>
+<script src="http://alexgorbatchev.com/pub/sh/current/scripts/shAutoloader.js" type="text/javascript"></script>
+<script src="http://alexgorbatchev.com/pub/sh/current/scripts/shBrushCpp.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+    SyntaxHighlighter.all()
+</script>
